@@ -100,8 +100,9 @@ if ($mode.toupper() -eq "Y") {
         }
     }else {
         write-host "payload.bin does not exist.`n"
+        PauseExit;
     }
-    Write-Host "`n`n"
+    #Write-Host "`n`n"
     write-host "Checking for and deleting any steel diver updates and checking for save file size"
     $n3dsfolder = Get-ChildItem -Path "$($drive.DriveLetter):/\Nintendo 3ds\" | Where-Object { $_.PSIsContainer }
     foreach ($id0 in $n3dsfolder)
@@ -115,16 +116,23 @@ if ($mode.toupper() -eq "Y") {
                 continue
             }
             remove-item "$($id1.fullname)\title\0004000e\$($gamedir)" -ErrorAction SilentlyContinue
-            foreach ($sav in Get-ChildItem "$($id1.fullname)\title\00040000\$($gamedir)\data\") {
+            foreach ($sav in Get-ChildItem "$($id1.fullname)\title\00040000\$($gamedir)\data\" -ErrorVariable errsav -ErrorAction SilentlyContinue) {
                 if (-not $sav.length -eq 524288) {
                     Write-Host "Extra or incorrect files in data directory: $($sav.fullname)`n"
                 }else{
                     Write-Host "save file is the correct size in data directory: $($id1.fullname)\title\00040000\$($gamedir)\data\`n"
+                    $found=1; 
                 }
             }
         }
 
     }
+    if ($errsav -and -not $found) {
+        write-Host "Save file does not exist`n";
+        $errsav = "";
+        PauseExit;
+    }
+
     $file=(getMD5("$($drive.DriveLetter):/boot.3dsx"));
     if ($file) {
         if ($file -eq $boot3dsxMD5) {
@@ -180,6 +188,7 @@ if ($mode.toupper() -eq "Y") {
         }
     }else {
         write-host "boot.nds does not exist."
+        PauseExit;
     }
 }
 
