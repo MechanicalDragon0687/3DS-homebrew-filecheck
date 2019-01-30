@@ -105,6 +105,15 @@ if ($mode.toupper() -eq "Y") {
     #Write-Host "`n`n"
     write-host "Checking for and deleting any steel diver updates and checking for save file size"
     $n3dsfolder = Get-ChildItem -Path "$($drive.DriveLetter):/\Nintendo 3ds\" | Where-Object { $_.PSIsContainer }
+    $n3dsfiles =  Get-ChildItem -Path "$($drive.DriveLetter):/\Nintendo 3ds\" | Where-Object { -not $_.PSIsContainer }
+    foreach ($fn in $n3dsfiles) {
+            if ($fn.name -match '.3dsx$') {
+                write-host "Found 3dsx file in the Nintendo 3ds folder, this is the incorrect folder for 3dsx files";
+            }
+            if ($fn.name -match '.firm$') {
+                write-host "Found .firm file in the Nintendo 3ds folder, this is the incorrect folder for .firm files";
+            }
+    }
     foreach ($id0 in $n3dsfolder)
     {
         if (-not ($id0.name.length -eq 32)) {
