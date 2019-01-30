@@ -58,6 +58,23 @@ if ($drive.FileSystem -eq "FAT32") {
     PauseExit;
 }
 
+
+#*****************************************************************************************************
+write-host "Checking Nintendo 3ds folder for incorrect file placement"
+$n3dsfiles =  Get-ChildItem -Path "$($drive.DriveLetter):/\Nintendo 3ds\" | Where-Object { -not $_.PSIsContainer }
+foreach ($fn in $n3dsfiles) {
+        if ($fn.name -match '.3dsx$') {
+            write-host "Found .3dsx file in the Nintendo 3ds folder, this is the incorrect folder for .3dsx files";
+        }
+        if ($fn.name -match '.nds$') {
+            write-host "Found .nds file in the Nintendo 3ds folder, this is the incorrect folder for .nds files";
+        }
+        if ($fn.name -match '.firm$') {
+            write-host "Found .firm file in the Nintendo 3ds folder, this is the incorrect folder for .firm files";
+        }
+}
+
+
 #*****************************************************************************************************
 
 $mode = Read-Host "`ndo you want to check steelminer installation files?"
@@ -103,17 +120,8 @@ if ($mode.toupper() -eq "Y") {
         PauseExit;
     }
     #Write-Host "`n`n"
-    write-host "Checking for and deleting any steel diver updates and checking for save file size"
+    write-host "Checking for any steel diver updates and checking for save file size"
     $n3dsfolder = Get-ChildItem -Path "$($drive.DriveLetter):/\Nintendo 3ds\" | Where-Object { $_.PSIsContainer }
-    $n3dsfiles =  Get-ChildItem -Path "$($drive.DriveLetter):/\Nintendo 3ds\" | Where-Object { -not $_.PSIsContainer }
-    foreach ($fn in $n3dsfiles) {
-            if ($fn.name -match '.3dsx$') {
-                write-host "Found 3dsx file in the Nintendo 3ds folder, this is the incorrect folder for 3dsx files";
-            }
-            if ($fn.name -match '.firm$') {
-                write-host "Found .firm file in the Nintendo 3ds folder, this is the incorrect folder for .firm files";
-            }
-    }
     foreach ($id0 in $n3dsfolder)
     {
         if (-not ($id0.name.length -eq 32)) {
@@ -124,7 +132,12 @@ if ($mode.toupper() -eq "Y") {
             if (-not $id1.name.length -eq 32) { 
                 continue
             }
-            remove-item "$($id1.fullname)\title\0004000e\$($gamedir)" -ErrorAction SilentlyContinue
+             #if (Test-Path -Path "$($drive.DriveLetter):/boot.nds" ) {
+            if (Test-Path -Path "$($id1.fullname)\title\0004000e\$($gamedir)" ) {
+                write-host "You have the steel diver update installed. Be sure to delete it from settings->data management->3ds->downloadable content (or addons)";
+                write-host "update was found in: $($id1.fullname)`n";
+
+            }
             foreach ($sav in Get-ChildItem "$($id1.fullname)\title\00040000\$($gamedir)\data\" -ErrorVariable errsav -ErrorAction SilentlyContinue) {
                 if (-not $sav.length -eq 524288) {
                     Write-Host "Extra or incorrect files in data directory: $($sav.fullname)`n"
@@ -137,7 +150,7 @@ if ($mode.toupper() -eq "Y") {
 
     }
     if ($errsav -and -not $found) {
-        write-Host "Save file does not exist`n";
+        write-Host "Steel Diver save file does not exist or you have the wrong region payload. Verify the region listed above.`n";
         $errsav = "";
         PauseExit;
     }
