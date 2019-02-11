@@ -123,15 +123,15 @@ if ($mode.toupper() -eq "Y") {
                 write-host "Failed to rename. Please remove the .bin from the end of your payload file and run this tool again.`n";
                 PauseExit;
             }else{
-                write-host "File renamed successfully. Please turn on file extensions to avoid future complications.";
+                write-host "File renamed successfully. Please turn on file extensions to avoid future complications.`n";
             }
         }else{
-            write-host "payload.bin does not exist.`n"
+            write-host "payload.bin does not exist.`n";
             PauseExit;
         }
     }
     #Write-Host "`n`n"
-    write-host "Checking for any steel diver updates and checking for save file size"
+    write-host "Checking for any steel diver updates and checking for save file size`n"
     $n3dsfolder = Get-ChildItem -Path "$($drive.DriveLetter):/\Nintendo 3ds\" | Where-Object { $_.PSIsContainer }
     foreach ($id0 in $n3dsfolder)
     {
