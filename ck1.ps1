@@ -112,12 +112,23 @@ if ($mode.toupper() -eq "Y") {
             write-host "You seem to have the JAP region payload, assuming version 11.9.0-42J in settings";
             $gamedir=$JPsteeldiver;
         }else{
-            Write-Host "payload.bin is not USA/EUR/JPN nor is it o3ds/o2ds/o3dsxl/n3ds/n3dsxl/n2dsxl. Either the file is corrupted or it is not the correct file.`n"
+            Write-Host "payload.bin is incorrect. This can be caused by incorrect number choices when downloading otherapp, or corruption during copying to SD.`n"
             PauseExit;
         }
     }else {
-        write-host "payload.bin does not exist.`n"
-        PauseExit;
+        if (Test-Path -Path "$($drive.DriveLetter):/steelhax/payload.bin.bin" ) {
+            write-host "payload.bin was named incorrectly. This is likely due to having file extensions hidden.`nAttempting to rename it for you.`n";
+            Rename-Item -Path "$($drive.DriveLetter):/steelhax/payload.bin.bin" -newname "payload.bin"
+            if (-not Test-Path -Path "$($drive.DriveLetter):/steelhax/payload.bin" ) {
+                write-host "Failed to rename. Please remove the .bin from the end of your payload file and run this tool again.`n";
+                PauseExit;
+            }else{
+                write-host "File renamed successfully. Please turn on file extensions to avoid future complications.";
+            }
+        }else{
+            write-host "payload.bin does not exist.`n"
+            PauseExit;
+        }
     }
     #Write-Host "`n`n"
     write-host "Checking for any steel diver updates and checking for save file size"
