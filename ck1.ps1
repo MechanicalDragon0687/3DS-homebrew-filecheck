@@ -112,7 +112,7 @@ if ($mode.toupper() -eq "Y") {
             write-host "You seem to have the JAP region payload, assuming version 11.9.0-42J in settings";
             $gamedir=$JPsteeldiver;
         }else{
-            Write-Host "payload.bin is wrong.`n"
+            Write-Host "payload.bin is not USA/EUR/JPN nor is it o3ds/o2ds/o3dsxl/n3ds/n3dsxl/n2dsxl. Either the file is corrupted or it is not the correct file.`n"
             PauseExit;
         }
     }else {
