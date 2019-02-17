@@ -63,6 +63,10 @@ if ($drive.FileSystem -eq "FAT32") {
 write-host "Checking Nintendo 3ds folder for incorrect file placement"
 $n3dsfiles =  Get-ChildItem -Path "$($drive.DriveLetter):/\Nintendo 3ds\" | Where-Object { -not $_.PSIsContainer }
 foreach ($fn in $n3dsfiles) {
+        if ($fn.name -match 'boot.3dsx') {
+           write-host "Found boot.3dsx file in the Nintendo 3ds folder, this is the incorrect folder for boot.3dsx file.`nAttempting to move.";
+           Move-Item -Path "$($drive.DriveLetter):/Nintendo 3ds/boot.3dsx" -Destination "$($drive.DriveLetter):/";
+        }
         if ($fn.name -match '.3dsx$') {
             write-host "Found .3dsx file in the Nintendo 3ds folder, this is the incorrect folder for .3dsx files";
         }
@@ -83,7 +87,10 @@ if ($mode.toupper() -eq "Y") {
 
     Write-Host "`n**CHECKING STEELMINER FILES**`n"
     $gamedir="FFFFFFFF";
-
+    if (Test-Path -Path "$($drive.DriveLetter):/Nintendo 3ds/steelhax/" ) {
+        write-host "Your steelhax folder is in the wrong place, attempting to move it to SD root: $($drive.DriveLetter):/steelhax/`n";
+        Move-Item -Path "$($drive.DriveLetter):/Nintendo 3ds/steelhax/" -Destination "$($drive.DriveLetter):/";
+    }
     $file=(getMD5("$($drive.DriveLetter):/steelhax/payload.bin"));
     #if (Test-Path -Path "$($drive.DriveLetter):/boot.nds" ) {
     if ($file)    {
