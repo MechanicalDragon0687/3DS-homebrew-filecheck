@@ -118,8 +118,8 @@ if ($mode.toupper() -eq "Y") {
     }else {
         if (Test-Path -Path "$($drive.DriveLetter):/steelhax/payload.bin.bin" ) {
             write-host "payload.bin was named incorrectly. This is likely due to having file extensions hidden.`nAttempting to rename it for you.`n";
-            Rename-Item -Path "$($drive.DriveLetter):/steelhax/payload.bin.bin" -newname "payload.bin"
-            if (-not Test-Path -Path "$($drive.DriveLetter):/steelhax/payload.bin" ) {
+            Rename-Item -Path "$($drive.DriveLetter):/steelhax/payload.bin.bin" -newname "payload.bin";
+            if (-not (Test-Path -Path "$($drive.DriveLetter):/steelhax/payload.bin" )) {
                 write-host "Failed to rename. Please remove the .bin from the end of your payload file and run this tool again.`n";
                 PauseExit;
             }else{
