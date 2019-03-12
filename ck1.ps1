@@ -51,8 +51,10 @@ if (-not $drive.DriveLetter -eq $drv -or $drv -eq "") {
     write-host "Cannot find drive $drv";
     PauseExit;
 }
-if ($drive.FileSystem -eq "FAT32") {
+if ($drive.FileSystem -eq "FAT32" ) {
     write-host "Drive is Formatted FAT32 - Good"
+}elseif($drive.FileSystem -eq "FAT") {
+    write-host "Drive is Formatted FAT - This may be ok"
 }else{
     write-host "Drive is formatted $($drive.FileSystem) and not FAT32 - BAD.`nReformat drive with guiformat"
     PauseExit;
