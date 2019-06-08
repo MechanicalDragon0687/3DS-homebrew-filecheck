@@ -127,7 +127,7 @@ if ($mode.toupper() -eq "Y") {
             write-host "You seem to have the JAP region payload, assuming version 11.9.0-42J in settings";
             $gamedir=$JPsteeldiver;
         }else{
-            Write-Host "payload.bin is incorrect. This can be caused by incorrect number choices when downloading otherapp, or corruption during copying to SD.`n"
+            Write-Host "payload.bin is incorrect. `nMD5 is        $file`. This can be caused by incorrect number choices when downloading otherapp, or corruption during copying to SD.`n"
             PauseExit;
         }
     }else {
