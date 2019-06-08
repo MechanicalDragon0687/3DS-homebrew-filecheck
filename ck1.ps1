@@ -1,9 +1,9 @@
-# Updated for luma 9.1 and steelminer for 11.7-11.9
-#b9stool v5.0.1
-$bootndsMD5 = "175093C2784777190A83374CB1AC9E16"
+# Updated for luma 9.1 and steelminer for 11.7-11.10
+#b9stool v5.0.1 current as of 8 June 2019
+$bootndsMD5 = "1876FC7BD0DDDB4D1DDE86D3850A5D08"
 #new-hbmenu v2.0.0
 $boot3dsxMD5 = "0DE027B0447B4470CB796AFB94B4CDF2"
-#otherapp 11.7-11.9
+#otherapp 11.10
 $payloadNewUS = "349EB973101E32F5975B4D13682F4ED0"
 $payloadNewEU = "41EDFA4A2EEDD5A7EEDF4B937CC7D267"
 $payloadNewJP = "415B6C2F2709F4931B51D199CF3CBE1E"
