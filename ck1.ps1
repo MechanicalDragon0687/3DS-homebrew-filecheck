@@ -104,27 +104,27 @@ if ($mode.toupper() -eq "Y") {
     if ($file)    {
         if ($file -eq $payloadNewUS) {
             write-host "You seem to have the NEW console payload. Assuming your system is n3ds, n3dsXL, or n2dsXL";
-            write-host "You seem to have the USA region payload, assuming version 11.9.0-42U in settings";
+            write-host "You seem to have the USA region payload, assuming version 11.10.0-42U in settings";
             $gamedir=$USsteeldiver;
         }elseif ($file -eq $payloadNewEU) {
             write-host "You seem to have the NEW console payload. Assuming your system is n3ds, n3dsXL, or n2dsXL";
-            write-host "You seem to have the EUR region payload, assuming version 11.9.0-42E in settings";
+            write-host "You seem to have the EUR region payload, assuming version 11.10.0-42E in settings";
             $gamedir=$EUsteeldiver;
         }elseif ($file -eq $payloadNewJP) {
             write-host "You seem to have the NEW console payload. Assuming your system is n3ds, n3dsXL, or n2dsXL";
-            write-host "You seem to have the JPN region payload, assuming version 11.9.0-42J in settings";
+            write-host "You seem to have the JPN region payload, assuming version 11.10.0-42J in settings";
             $gamedir=$JPsteeldiver;
         }elseif ($file -eq $payloadOldUS) {
             write-host "You seem to have the OLD console payload. Assuming your system is o3ds, o3dsXL, or o2ds (not foldable)";
-            write-host "You seem to have the USA region payload, assuming version 11.9.0-42U in settings";
+            write-host "You seem to have the USA region payload, assuming version 11.10.0-42U in settings";
             $gamedir=$USsteeldiver;
         }elseif ($file -eq $payloadOldEU) {
             write-host "You seem to have the OLD console payload. Assuming your system is o3ds, o3dsXL, or o2ds (not foldable)";
-            write-host "You seem to have the EUR region payload, assuming version 11.9.0-42E in settings";
+            write-host "You seem to have the EUR region payload, assuming version 11.10.0-42E in settings";
             $gamedir=$EUsteeldiver;
         }elseif ($file -eq $payloadOldJP) {
             write-host "You seem to have the OLD console payload. Assuming your system is o3ds, o3dsXL, or o2ds (not foldable)";
-            write-host "You seem to have the JAP region payload, assuming version 11.9.0-42J in settings";
+            write-host "You seem to have the JAP region payload, assuming version 11.10.0-42J in settings";
             $gamedir=$JPsteeldiver;
         }else{
             Write-Host "payload.bin is incorrect. `nMD5 is        $file`. This can be caused by incorrect number choices when downloading otherapp, or corruption during copying to SD.`n"
