@@ -1,4 +1,4 @@
-# Updated for luma 9.1 and steelminer for 11.7-11.10
+# Updated for luma 10.0.1 and steelminer for 11.7-11.10
 #b9stool v5.0.1 current as of 8 June 2019
 $bootndsMD5 = "1876FC7BD0DDDB4D1DDE86D3850A5D08"
 #new-hbmenu v2.0.1
@@ -23,10 +23,41 @@ $JPsteeldiver="000d7c00"
 $frogcertMD5="39A1B894B9F85C9B1998D172EF4DCC3A"
 #Frogtool 2.2
 $frogtoolMD5="2511BC883FA69C2F79424784344737E8"
-$mode = 0
+#Flipnote Save
+$flipnoteMD5="61C6A702D6616F057D52197294DB11FD"
+
+
+
+
+$checkFormat = $true;
+$checkFiles = $true;
+$checkSteelhax = $false;
+$checkB9sTool = $false;
+$checkFrogtool = $false;
+$checkFredtool = $false;
+$checkLuma = $false;
+$drive = $null;
+$choice = "";
+$ErrorActionPreference = 'silentlycontinue'
+#$script:drive;
+function isEnabled() {
+    param([bool]$check = $false)
+    if ( $check -eq $true ) {
+        return "X";
+    }else{
+        return " ";
+    }
+    return " ";
+}
+
 function PauseExit {
-    cmd.exe /c pause
+    Write-Host "`nPress any Key to exit...`n"
+    [void][System.Console]::ReadKey($FALSE)
     exit;
+}
+function Pause {
+    Write-Host "`nPress any Key to continue...`n"
+    [void][System.Console]::ReadKey($FALSE)
 }
 function fail() {
 
@@ -35,119 +66,228 @@ function getMD5($filepath) {
     $md5 = New-Object -TypeName System.Security.Cryptography.MD5CryptoServiceProvider
     return ([System.BitConverter]::ToString($md5.ComputeHash([System.IO.File]::ReadAllBytes($filepath))).replace("-",""));
 }
-Clear-Host;
-$drive = $null
-$drv = Read-Host "What drive letter is your SD at?"
-$drv = $drv.replace(':','').replace('\','');
-Get-WMIObject -Query "SELECT * FROM Win32_DiskPartition" | Foreach-Object {
-    $part=$_
-    Get-WmiObject -Query "Associators of {Win32_DiskPartition.DeviceID='$($_.DeviceID)'} where AssocClass=Win32_LogicalDiskToPartition" | ForEach-Object {
-        $dsk=$_
-        Get-WmiObject -Query "SELECT * from Win32_Volume WHERE DriveLetter='$($_.DeviceID)'" | ForEach-Object {
-            $vol = $_
-            New-Object -Type PSCustomObject -Property @{
-                PartitionStyle=$part.Type
-                DriveLetter=$dsk.DeviceID.Substring(0,1)
-                FileSystem=$vol.FileSystem
+
+function ShowMenu() {
+    Clear-Host;
+    Write-Host "`n`n   3DS Homebrew/CFW installation Check Tool`n`tBy MechDragon`n`n"
+    write-host "  1.`t[$(isEnabled $checkFormat)] Check SD Format";
+    write-host "  2.`t[$(isEnabled $checkFiles)] Check SD File Placement";
+    write-host "  3.`t[$(isEnabled $checkSteelhax)] Check Steelhax Files";
+    write-host "  4.`t[$(isEnabled $checkB9sTool)] Check B9sTool (miner)";
+    write-host "  5.`t[$(isEnabled $checkFrogtool)] Check Frogtool Files";
+    write-host "  6.`t[$(isEnabled $checkFredtool)] Check Fredtool Files";
+    write-host "  7.`t[$(isEnabled $checkLuma)] Check Luma Files";
+    write-host "`n  [R]un Check(s)";
+    write-host   "  [Q]uit`n";
+    $choice=read-host "Pick an option: ";
+    return $choice.Replace('r','R').replace('q','Q');
+}
+function GetDrive() {
+    Clear-Host;
+    Write-Host "`n`n   3DS Homebrew/CFW installation Check Tool`n`tBy MechDragon`n`n"
+    $drv = Read-Host "What drive letter is your SD at?"
+    $drv = $drv.replace(':','').replace('\','');
+    Get-WMIObject -Query "SELECT * FROM Win32_DiskPartition" | Foreach-Object {
+        $part=$_
+        Get-WmiObject -Query "Associators of {Win32_DiskPartition.DeviceID='$($_.DeviceID)'} where AssocClass=Win32_LogicalDiskToPartition" | ForEach-Object {
+            $dsk=$_
+            Get-WmiObject -Query "SELECT * from Win32_Volume WHERE DriveLetter='$($_.DeviceID)'" | ForEach-Object {
+                $vol = $_
+                New-Object -Type PSCustomObject -Property @{
+                    PartitionStyle=$part.Type
+                    DriveLetter=$dsk.DeviceID.Substring(0,1)
+                    FileSystem=$vol.FileSystem
+                }
             }
         }
+    } | ForEach-Object {if ($_.DriveLetter -eq $drv) {$drive=$_;} }
+
+    if (-not $drive.DriveLetter -eq $drv -or $drv -eq "") {
+        write-host "Cannot find drive $drv";
+        PauseExit;
     }
-} | ForEach-Object {if ($_.DriveLetter -eq $drv) {$drive=$_;} }
-
-if (-not $drive.DriveLetter -eq $drv -or $drv -eq "") {
-    write-host "Cannot find drive $drv";
-    PauseExit;
-}
-if ($drive.FileSystem -eq "FAT32" ) {
-    write-host "Drive is Formatted FAT32 - Good"
-}elseif($drive.FileSystem -eq "FAT") {
-    write-host "Drive is Formatted FAT - This may be ok"
-}else{
-    write-host "Drive is formatted $($drive.FileSystem) and not FAT32 - BAD.`nReformat drive with guiformat"
-    PauseExit;
+    return $drive
 }
 
-
-#*****************************************************************************************************
-write-host "Checking Nintendo 3ds folder for incorrect file placement"
-$n3dsfiles =  Get-ChildItem -Path "$($drive.DriveLetter):/\Nintendo 3ds\" | Where-Object { -not $_.PSIsContainer }
-foreach ($fn in $n3dsfiles) {
-        if ($fn.name -match 'boot.3dsx') {
-           write-host "Found boot.3dsx file in the Nintendo 3ds folder, this is the incorrect folder for boot.3dsx file.`nAttempting to move.";
-           Move-Item -Path "$($drive.DriveLetter):/Nintendo 3ds/boot.3dsx" -Destination "$($drive.DriveLetter):/";
-        }
-        if ($fn.name -match '.3dsx$') {
-            write-host "Found .3dsx file in the Nintendo 3ds folder, this is the incorrect folder for .3dsx files";
-        }
-        if ($fn.name -match '.nds$') {
-            write-host "Found .nds file in the Nintendo 3ds folder, this is the incorrect folder for .nds files";
-        }
-        if ($fn.name -match '.firm$') {
-            write-host "Found .firm file in the Nintendo 3ds folder, this is the incorrect folder for .firm files";
-        }
+######### Check format type of SD card
+function CheckSDFormat() {
+    if ($drive.FileSystem -eq "FAT32" ) {
+        write-host "Drive is Formatted FAT32"  -ForegroundColor White -BackgroundColor DarkGreen
+        return $true;
+    }elseif($drive.FileSystem -eq "FAT") {
+        write-host "Drive is Formatted FAT - This may be ok"  -ForegroundColor Black -BackgroundColor Yellow
+        return $true;
+    }else{
+        write-host "Drive is formatted $($drive.FileSystem) and not FAT32.`nReformat drive with guiformat."  -ForegroundColor White -BackgroundColor DarkRed
+        Pause;
+        return $false;
+    }
+    Pause;
+    return $false;
 }
 
+function Exists() {
+    param([String]$dir,
+          [String[]]$file )
+          return ($null -ne $(Get-ChildItem -Path "$($dir)" -Filter "$($file)"));
+}
 
-#*****************************************************************************************************
+######## Check SD Card for misplaced files
+function checkSDFiles() {
+    write-host "Checking Nintendo 3ds folder for incorrect file placement`n" -BackgroundColor Gray -ForegroundColor Black
+    $dirpath_list = $("$($drive.DriveLetter):\Nintendo 3ds\","$($drive.DriveLetter):\DCIM\")
+    foreach ($dirpath in $dirpath_list) {
+        write-host "Checking $($dirpath)";
+        if (Exists -dir "$($dirpath)" -file 'boot.3dsx') {
+            Move-Item -Path "$($dirpath)/boot.3dsx" -Destination "$($drive.DriveLetter):/";
+            write-host "Found boot.3dsx in the $($dirpath) folder. Attempting to move to $($drive.DriveLetter):/" -ForegroundColor Black -BackgroundColor Yellow;
+        }
+        if (Exists -dir "$($dirpath)" -file 'boot.firm') {
+            Move-Item -Path "$($dirpath)/boot.firm" -Destination "$($drive.DriveLetter):/";
+            write-host "Found boot.firm in the $($dirpath) folder. Attempting to move to $($drive.DriveLetter):/" -ForegroundColor Black -BackgroundColor Yellow;
+        }
+        if (Exists -dir "$($dirpath)" -file 'boot.nds') {
+            Move-Item -Path "$($dirpath)/boot.nds" -Destination "$($drive.DriveLetter):/";
+            write-host "Found boot.nds in the $($dirpath) folder. Attempting to move to $($drive.DriveLetter):/" -ForegroundColor Black -BackgroundColor Yellow;
+        }
+        if (Exists -dir "$($dirpath)" -file 'frogcert.bin') {
+            Move-Item -Path "$($dirpath)/frogcert.bin" -Destination "$($drive.DriveLetter):/";
+            write-host "Found frogcert.bin in the $($dirpath) folder. Attempting to move to $($drive.DriveLetter):/" -ForegroundColor Black -BackgroundColor Yellow;
+        }
+        if (Exists -dir "$($dirpath)" -file 'movable.sed') {
+            Move-Item -Path "$($dirpath)/movable.sed" -Destination "$($drive.DriveLetter):/";
+            write-host "Found movable.sed in the $($dirpath) folder. Attempting to move to $($drive.DriveLetter):/" -ForegroundColor Black -BackgroundColor Yellow;
+        }
+        if (Exists -dir "$($dirpath)" -file 'steelhax') {
+            Move-Item -Path "$($dirpath)/steelhax" -Destination "$($drive.DriveLetter):/";
+            write-host "Found steelhax in the $($dirpath) folder. Attempting to move to $($drive.DriveLetter):/" -ForegroundColor Black -BackgroundColor Yellow;
+        }
+        if (Exists -dir "$($dirpath)" -file '*.3dsx') {
+            new-Item -Name "3ds" -ItemType "directory" -Path "$($drive.DriveLetter):/";
+            Move-Item -Path "$($dirpath)/*.3dsx" -Destination "$($drive.DriveLetter):/3ds/";
+            write-host "Found .3dsx files in the $($dirpath) folder. Attempting to move to $($drive.DriveLetter):/3ds/" -ForegroundColor Black -BackgroundColor Yellow;
+        }
+        if (Exists -dir "$($dirpath)" -file '*.firm') {
+            new-Item -Name "luma" -ItemType "directory" -Path "$($drive.DriveLetter):/";
+            new-Item -Name "payloads" -ItemType "directory" -Path "$($drive.DriveLetter):/luma/";
+            Move-Item -Path "$($dirpath)/*.firm" -Destination "$($drive.DriveLetter):/luma/payloads/";
+            write-host "Found .firm files in the $($dirpath) folder. Attempting to move to $($drive.DriveLetter):/luma/payloads/" -ForegroundColor Black -BackgroundColor Yellow;
+        }
+        if (Exists -dir "$($dirpath)" -file '*.cia') {
+            new-Item -Name "cias" -ItemType "directory" -Path "$($drive.DriveLetter):/";
+            Move-Item -Path "$($dirpath)/*.cia" -Destination "$($drive.DriveLetter):/cias/";
+            write-host "Found .cia files in the $($dirpath) folder. Attempting to move to $($drive.DriveLetter):/cias/" -ForegroundColor Black -BackgroundColor Yellow;
+        }
+        if (Exists -dir "$($dirpath)" -file 'payload*') {
+            new-Item -Name "steelhax" -ItemType "directory" -Path "$($drive.DriveLetter):/";
+            Move-Item -Path "$($dirpath)/payload*" -Destination "$($drive.DriveLetter):/steelhax/payload.bin";
+            write-host "Found payload file in the $($dirpath) folder. Attempting to move to $($drive.DriveLetter):/steelhax/" -ForegroundColor Black -BackgroundColor Yellow;
+        }
+        if (Exists -dir "$($dirpath)/private/ds/app/4B47554A/001/" -file 'T00031_1038C2A757B77_000.ppm') {
+            new-Item -Name "private" -ItemType "directory" -Path "$($drive.DriveLetter):/";
+            Move-Item -Path "$($dirpath)/private/ds" -Destination "$($drive.DriveLetter):/private/";
+            write-host "Found DSiWare private folder in the $($dirpath) folder. Attempting to move to $($drive.DriveLetter):/" -ForegroundColor Black -BackgroundColor Yellow;
+        }
+    }
+}
+########################################################## 
 
-$mode = Read-Host "`ndo you want to check steelminer installation files?"
-$mode=$mode.substring(0,1);
-if ($mode.toupper() -eq "Y") {
+######## Check SD Card for Steelhax Files
 
-    Write-Host "`n**CHECKING STEELMINER FILES**`n"
+function checkSteelhaxFiles() {
+    Write-Host "`nChecking for Steelhax files`n" -BackgroundColor Gray -ForegroundColor Black
     $gamedir="FFFFFFFF";
-    if (Test-Path -Path "$($drive.DriveLetter):/Nintendo 3ds/steelhax/" ) {
-        write-host "Your steelhax folder is in the wrong place, attempting to move it to SD root: $($drive.DriveLetter):/steelhax/`n";
-        Move-Item -Path "$($drive.DriveLetter):/Nintendo 3ds/steelhax/" -Destination "$($drive.DriveLetter):/";
+    if (Test-Path -Path "$($drive.DriveLetter):/steelhax/payload.bin.bin" ) 
+    {
+        write-host "payload.bin was named incorrectly. This is likely due to having file extensions hidden.`nAttempting to rename it for you.`n" -ForegroundColor Black -BackgroundColor Yellow;
+        Rename-Item -Path "$($drive.DriveLetter):/steelhax/payload.bin.bin" -newname "payload.bin";
+    }
+    if ($(Test-Path -Path "$($drive.DriveLetter):/steelhax/payload.bin") -eq $false) 
+    {
+        write-host "payload.bin is missing from $($drive.DriveLetter):/steelhax/"  -ForegroundColor White -BackgroundColor DarkRed
+        Pause;
+        return $false;
     }
     $file=(getMD5("$($drive.DriveLetter):/steelhax/payload.bin"));
     #if (Test-Path -Path "$($drive.DriveLetter):/boot.nds" ) {
     if ($file)    {
         if ($file -eq $payloadNewUS) {
-            write-host "You seem to have the NEW console payload. Assuming your system is n3ds, n3dsXL, or n2dsXL";
-            write-host "You seem to have the USA region payload, assuming version 11.10.0-42U in settings";
+            write-host -NoNewLine "You seem to have the "
+            write-host -NoNewLine "NEW" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host -NoNewLine " console payload. Assuming your system is "
+            write-host "n3ds, n3dsXL, or n2dsXL" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host -NoNewLine "You seem to have the "
+            write-host -NoNewLine "USA" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host -NoNewLine " region payload, assuming version "
+            write-host -NoNewLine "11.10.0-43U" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host " in settings";
             $gamedir=$USsteeldiver;
         }elseif ($file -eq $payloadNewEU) {
-            write-host "You seem to have the NEW console payload. Assuming your system is n3ds, n3dsXL, or n2dsXL";
-            write-host "You seem to have the EUR region payload, assuming version 11.10.0-42E in settings";
+            write-host -NoNewLine "You seem to have the "
+            write-host -NoNewLine "NEW" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host -NoNewLine " console payload. Assuming your system is "
+            write-host "n3ds, n3dsXL, or n2dsXL" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host -NoNewLine "You seem to have the "
+            write-host -NoNewLine "EUR" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host -NoNewLine " region payload, assuming version "
+            write-host -NoNewLine "11.10.0-43E" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host " in settings";
             $gamedir=$EUsteeldiver;
         }elseif ($file -eq $payloadNewJP) {
-            write-host "You seem to have the NEW console payload. Assuming your system is n3ds, n3dsXL, or n2dsXL";
-            write-host "You seem to have the JPN region payload, assuming version 11.10.0-42J in settings";
+            write-host -NoNewLine "You seem to have the "
+            write-host -NoNewLine "NEW" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host -NoNewLine " console payload. Assuming your system is "
+            write-host "n3ds, n3dsXL, or n2dsXL" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host -NoNewLine "You seem to have the "
+            write-host -NoNewLine "JPN" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host -NoNewLine " region payload, assuming version "
+            write-host -NoNewLine "11.10.0-43J" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host " in settings";
             $gamedir=$JPsteeldiver;
         }elseif ($file -eq $payloadOldUS) {
-            write-host "You seem to have the OLD console payload. Assuming your system is o3ds, o3dsXL, or o2ds (not foldable)";
-            write-host "You seem to have the USA region payload, assuming version 11.10.0-42U in settings";
+            write-host -NoNewLine "You seem to have the "
+            write-host -NoNewLine "OLD" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host -NoNewLine " console payload. Assuming your system is "
+            write-host "o3ds, o3dsXL, or o2ds (not foldable)" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host -NoNewLine "You seem to have the "
+            write-host -NoNewLine "USA" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host -NoNewLine " region payload, assuming version "
+            write-host -NoNewLine "11.10.0-43U" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host " in settings";
             $gamedir=$USsteeldiver;
         }elseif ($file -eq $payloadOldEU) {
-            write-host "You seem to have the OLD console payload. Assuming your system is o3ds, o3dsXL, or o2ds (not foldable)";
-            write-host "You seem to have the EUR region payload, assuming version 11.10.0-42E in settings";
+            write-host -NoNewLine "You seem to have the "
+            write-host -NoNewLine "OLD" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host -NoNewLine " console payload. Assuming your system is "
+            write-host "o3ds, o3dsXL, or o2ds (not foldable)" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host -NoNewLine "You seem to have the "
+            write-host -NoNewLine "EUR" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host -NoNewLine " region payload, assuming version "
+            write-host -NoNewLine "11.10.0-43E" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host " in settings";
             $gamedir=$EUsteeldiver;
         }elseif ($file -eq $payloadOldJP) {
-            write-host "You seem to have the OLD console payload. Assuming your system is o3ds, o3dsXL, or o2ds (not foldable)";
-            write-host "You seem to have the JAP region payload, assuming version 11.10.0-42J in settings";
+            write-host -NoNewLine "You seem to have the "
+            write-host -NoNewLine "OLD" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host -NoNewLine " console payload. Assuming your system is "
+            write-host "o3ds, o3dsXL, or o2ds (not foldable)" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host -NoNewLine "You seem to have the "
+            write-host -NoNewLine "JPN" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host -NoNewLine " region payload, assuming version "
+            write-host -NoNewLine "11.10.0-43J" -ForegroundColor Black -BackgroundColor DarkGray
+            write-host " in settings";
             $gamedir=$JPsteeldiver;
         }else{
-            Write-Host "payload.bin is incorrect. `nMD5 is        $file`. This can be caused by incorrect number choices when downloading otherapp, or corruption during copying to SD.`n"
-            PauseExit;
+            Write-Host "payload.bin is incorrect. `nMD5 is        $file`n. This can be caused by incorrect number choices when downloading otherapp, or corruption during copying to SD.`n" -ForegroundColor White -BackgroundColor DarkRed
+            Pause;
+            return $false;
         }
-    }else {
-        if (Test-Path -Path "$($drive.DriveLetter):/steelhax/payload.bin.bin" ) {
-            write-host "payload.bin was named incorrectly. This is likely due to having file extensions hidden.`nAttempting to rename it for you.`n";
-            Rename-Item -Path "$($drive.DriveLetter):/steelhax/payload.bin.bin" -newname "payload.bin";
-            if (-not (Test-Path -Path "$($drive.DriveLetter):/steelhax/payload.bin" )) {
-                write-host "Failed to rename. Please remove the .bin from the end of your payload file and run this tool again.`n";
-                PauseExit;
-            }else{
-                write-host "File renamed successfully. Please turn on file extensions to avoid future complications.`n";
-            }
-        }else{
-            write-host "payload.bin does not exist.`n";
+    }else{
+            write-host "payload.bin does not exist.`n" -ForegroundColor White -BackgroundColor DarkRed
             PauseExit;
-        }
     }
     #Write-Host "`n`n"
-    write-host "Checking for any steel diver updates and checking for save file size`n"
+    write-host "Checking for any steel diver updates and checking for save file size`n" -BackgroundColor Gray -ForegroundColor Black
     $n3dsfolder = Get-ChildItem -Path "$($drive.DriveLetter):/\Nintendo 3ds\" | Where-Object { $_.PSIsContainer }
     foreach ($id0 in $n3dsfolder)
     {
@@ -161,13 +301,13 @@ if ($mode.toupper() -eq "Y") {
             }
              #if (Test-Path -Path "$($drive.DriveLetter):/boot.nds" ) {
             if (Test-Path -Path "$($id1.fullname)\title\0004000e\$($gamedir)" ) {
-                write-host "You have the steel diver update installed. Be sure to delete it from settings->data management->3ds->downloadable content (or addons)";
+                write-host "You have the steel diver update installed. Be sure to delete it from settings->data management->3ds->downloadable content (or addons)" -ForegroundColor Black -BackgroundColor Yellow;;
                 write-host "update was found in: $($id1.fullname)`n";
 
             }
             foreach ($sav in Get-ChildItem "$($id1.fullname)\title\00040000\$($gamedir)\data\" -ErrorVariable errsav -ErrorAction SilentlyContinue) {
                 if (-not $sav.length -eq 524288) {
-                    Write-Host "Extra or incorrect files in data directory: $($sav.fullname)`n"
+                    Write-Host "Extra or incorrect files in data directory: $($sav.fullname)`n" -ForegroundColor White -BackgroundColor DarkRed
                 }else{
                     Write-Host "save file is the correct size in data directory: $($id1.fullname)\title\00040000\$($gamedir)\data\`n"
                     $found=1; 
@@ -177,145 +317,269 @@ if ($mode.toupper() -eq "Y") {
 
     }
     if ($errsav -and -not $found) {
-        write-Host "Steel Diver save file does not exist or you have the wrong region payload. Verify the region listed above.`n";
+        write-Host "Steel Diver save file does not exist or you have the wrong region payload. Verify the region listed above.`n" -ForegroundColor White -BackgroundColor DarkRed;
         $errsav = "";
-        PauseExit;
+        Pause;
+        return $false;
     }
 
     $file=(getMD5("$($drive.DriveLetter):/boot.3dsx"));
     if ($file) {
         if ($file -eq $boot3dsxMD5) {
-            write-host "boot.3dsx exists - Good"
+            write-host "boot.3dsx is valid" -ForegroundColor White -BackgroundColor DarkGreen
         }else{
-            write-host "boot.3dsx is wrong.`nMD5 is        $file`nMD5 should be $boot3dsxMD5`nRedownload Homebrew Launcher. Put boot.3dsx on the SD at $($drive.DriveLetter):\boot.3dsx"
-            PauseExit;
+            write-host "boot.3dsx is wrong.`nMD5 is        $file`nMD5 should be $boot3dsxMD5`nRedownload Homebrew Launcher. Put boot.3dsx on the SD at $($drive.DriveLetter):\boot.3dsx" -ForegroundColor White -BackgroundColor DarkRed
+            Pause;
+            return $false;
         }
     }else {
-        write-host "boot.3dsx does not exist.`nRedownload Homebrew Launcher. Put boot.3dsx on the SD at $($drive.DriveLetter):\boot.3dsx"
-        PauseExit;
+        write-host "boot.3dsx does not exist.`nRedownload Homebrew Launcher. Put boot.3dsx on the SD at $($drive.DriveLetter):\boot.3dsx" -ForegroundColor White -BackgroundColor DarkRed
+        Pause;
+        return $false;
     }
     $file=(getMD5("$($drive.DriveLetter):/steelhax/code.bin"));
     if ($file) {
         if ($file -eq $codebinMD5) {
-            write-host "code.bin exists - Good"
+            write-host "code.bin is valid" -ForegroundColor White -BackgroundColor DarkGreen
         }else{
-            write-host "code.bin is wrong.`nMD5 is        $file`nMD5 should be $codebinMD5`nRedownload steelhax and extract the steelhax folder."
-            PauseExit;
+            write-host "code.bin is wrong.`nMD5 is        $file`nMD5 should be $codebinMD5`nRedownload steelhax and extract the steelhax folder." -ForegroundColor White -BackgroundColor DarkRed
+            Pause;
+            return $false;
         }
     }else {
-        write-host "code.bin does not exist.`nRedownload steelhax and extract the steelhax folder."
-        PauseExit;
+        write-host "code.bin does not exist.`nRedownload steelhax and extract the steelhax folder." -ForegroundColor White -BackgroundColor DarkRed
+        Pause;
+        return $false;
     }
     $file=(getMD5("$($drive.DriveLetter):/steelhax/rop.bin"));
     if ($file) {
         if ($file -eq $ropbinMD5) {
-            write-host "rop.bin exists - Good"
+            write-host "rop.bin is valid" -ForegroundColor White -BackgroundColor DarkGreen
         }else{
-            write-host "rop.bin is wrong.`nMD5 is        $file`nMD5 should be $ropbinMD5`nRedownload steelhax and extract the steelhax folder."
-            PauseExit;
+            write-host "rop.bin is wrong.`nMD5 is        $file`nMD5 should be $ropbinMD5`nRedownload steelhax and extract the steelhax folder." -ForegroundColor White -BackgroundColor DarkRed
+            Pause;
+            return $false;
         }
     }else {
-        write-host "rop.bin does not exist.`nRedownload steelhax and extract the steelhax folder."
-        PauseExit;
+        write-host "rop.bin does not exist.`nRedownload steelhax and extract the steelhax folder." -ForegroundColor White -BackgroundColor DarkRed
+        Pause;
+        return $false;
     }
 
+
+    return $true;
 }
 
-$mode = Read-Host "`ndo you want to check b9stool (dsiware exploit installation. eg. frogminer, fredminer, seedminer)?"
-$mode=$mode.substring(0,1);
-if ($mode.toupper() -eq "Y") {
 
-    Write-Host "`n**CHECKING *MINER FILES**`n"
+############# Check B9sTool
+function checkB9sFiles() {
+    Write-Host "`nChecking B9STool`n" -BackgroundColor Gray -ForegroundColor Black
     $file=(getMD5("$($drive.DriveLetter):/boot.nds"));
     #if (Test-Path -Path "$($drive.DriveLetter):/boot.nds" ) {
     if ($file)    {
         if ($file -eq $bootndsMD5) {
-            write-host "boot.nds exists - Good";
+            write-host "boot.nds is valid"  -ForegroundColor White -BackgroundColor DarkGreen;
         }else{
-            Write-Host "boot.nds is wrong. `nMD5 is        $file`nMD5 should be $bootndsMD5`nRedownload b9stool and put the file on the SD root at $($drive.DriveLetter):\boot.nds"
-            PauseExit;
+            Write-Host "boot.nds is wrong. `nMD5 is        $file`nMD5 should be $bootndsMD5`nRedownload b9stool and put the file on the SD root at $($drive.DriveLetter):\boot.nds"  -ForegroundColor White -BackgroundColor DarkRed
+            Pause;
+            return $false;
         }
     }else {
-        write-host "boot.nds does not exist."
-        PauseExit;
+        write-host "boot.nds does not exist." -ForegroundColor White -BackgroundColor DarkRed
+        Pause;
+        return $false;
     }
+    return $true;
 }
 
-$mode = Read-Host "`ndo you want to check frogminer files?"
-$mode=$mode.substring(0,1);
-if ($mode.toupper() -eq "Y") {
-    Write-Host "`n**CHECKING FROGMINER FILES**`n"
+############# Check Frogtool Files
+function checkFrogtoolFiles() {
+    Write-Host "`nChecking Frogtool files`n" -BackgroundColor Gray -ForegroundColor Black
     $file=(get-item -path "$($drive.DriveLetter):/movable.sed" -ErrorAction SilentlyContinue)
     #$file=(getMD5("$($drive.DriveLetter):/boot.firm"));
     if ($file) {
         if ($file.length -eq 320) {
-            write-host "movable.sed exists - Good"
+            write-host "movable.sed is valid" -ForegroundColor White -BackgroundColor DarkGreen;
         }else{
-            write-host "movable.sed is wrong.`nfile should be 320 bytes.`n"
-            PauseExit;
+            write-host "movable.sed is wrong.`nfile should be 320 bytes.`n" -ForegroundColor White -BackgroundColor DarkRed
+            Pause;
+            return $false;
         }
     }else {
-        write-host "movable.sed does not exist.`nRedownload your movable.sed and put it in SD root."
-        PauseExit;
+        write-host "movable.sed does not exist.`nRedownload your movable.sed and put it in SD root." -ForegroundColor White -BackgroundColor DarkRed
+        Pause;
+        return $false;
     }
     $file=(getMD5("$($drive.DriveLetter):/frogcert.bin"));
     if ($file) {
         if ($file -eq $frogcertMD5) {
-            write-host "frogcert.bin exists - Good"
+            write-host "frogcert.bin is valid" -ForegroundColor White -BackgroundColor DarkGreen;
         }else{
-            write-host "frogcert.bin is wrong.`nMD5 is        $file`nMD5 should be $frogcertMD5`nRedownload frogcert with a Torrent client. Put frogcert.bin on the SD at $($drive.DriveLetter):\frogcert.bin"
-            PauseExit;
+            write-host "frogcert.bin is wrong.`nMD5 is        $file`nMD5 should be $frogcertMD5`nRedownload frogcert with a Torrent client. Put frogcert.bin on the SD at $($drive.DriveLetter):\frogcert.bin" -ForegroundColor White -BackgroundColor DarkRed
+            Pause;
+            return $false;
         }
     }else {
-        write-host "frogcert.bin does not exist.`nRedownload frogcert with a Torrent client. Put frogcert.bin on the SD at $($drive.DriveLetter):\frogcert.bin"
-        PauseExit;
+        write-host "frogcert.bin does not exist.`nRedownload frogcert with a Torrent client. Put frogcert.bin on the SD at $($drive.DriveLetter):\frogcert.bin" -ForegroundColor White -BackgroundColor DarkRed
+        Pause;
+        return $false;
     }
     $file=(getMD5("$($drive.DriveLetter):/3ds/frogtool.3dsx"));
     if ($file) {
         if ($file -eq $frogtoolMD5) {
-            write-host "frogtool.3dsx exists - Good"
+            write-host "frogtool.3dsx is valid" -ForegroundColor White -BackgroundColor DarkGreen;
         }else{
-            write-host "frogtool.3dsx is wrong.`nMD5 is        $file`nMD5 should be $frogtoolMD5`nRedownload frogtool and put it on the SD at $($drive.DriveLetter):\3ds\frogtool.3dsx"
-            PauseExit;
+            write-host "frogtool.3dsx is wrong.`nMD5 is        $file`nMD5 should be $frogtoolMD5`nRedownload frogtool and put it on the SD at $($drive.DriveLetter):\3ds\frogtool.3dsx" -ForegroundColor White -BackgroundColor DarkRed
+            Pause;
+            return $false;
         }
     }else {
-        write-host "frogtool.3dsx does not exist.`nRedownload frogtool and put it on the SD at $($drive.DriveLetter):\3ds\frogtool.3dsx"
-        PauseExit;
+        write-host "frogtool.3dsx does not exist.`nRedownload frogtool and put it on the SD at $($drive.DriveLetter):\3ds\frogtool.3dsx" -ForegroundColor White -BackgroundColor DarkRed
+        Pause;
+        return $false;
     }
+    if ($(checkB9sFiles) -ne $true) {
+        return $false;
+    }
+    return $true;
 }
+############# Check Fredtool Files
+function checkFrogtoolFiles() {
+    Write-Host "`nChecking Fredtool files`n" -BackgroundColor Gray -ForegroundColor Black
+    if ($(checkLumaFiles) -ne $true) {
+        return $false;
+    }
+    if ($(checkB9sFiles) -ne $true) {
+        return $false;
+    }
 
-#*****************************************************************************************************
+    $n3dsfolder = Get-ChildItem -Path "$($drive.DriveLetter):/\Nintendo 3ds\" | Where-Object { $_.PSIsContainer }
+    foreach ($id0 in $n3dsfolder)
+    {
+        if (-not ($id0.name.length -eq 32)) {
+            continue
+        }
+        $id1folders = Get-ChildItem -Path "$($id0.fullname)" |  Where-Object { $_.PSIsContainer } 
+        foreach ($id1 in $id1folders){
+            if (-not $id1.name.length -eq 32) { 
+                continue
+            }
+             #if (Test-Path -Path "$($drive.DriveLetter):/boot.nds" ) {
+            if (Test-Path -Path "$($id1.fullname)\Nintendo DSiWare\42383841.bin" ) {
+                write-host "Fredtool DSiWare exists" -ForegroundColor White -BackgroundColor DarkGreen;
+                $found=1
+            }
+        }
+    }
+    if ($found -ne 1) {
+        write-host "Fredtool DSiWare does not exist.`nRedownload it from the fredtool website and extract the correct dsiware to the dsiware folder at $($id1.fullname)\Nintendo DSiWare\42383841.bin" -ForegroundColor White -BackgroundColor DarkRed
+        Pause;
+        return $false;
+    }
 
-$mode = Read-Host "`ndo you want to check luma3ds boot files?"
-$mode=$mode.substring(0,1);
-if ($mode.toupper() -eq "Y") {
+    return $true;
+}
+############# Check Luma Files
+function checkLumaFiles() {
 
-    Write-Host "`n**CHECKING LUMA FILES**`n"
+    Write-Host "`nChecking Luma3ds Files`n" -BackgroundColor Gray -ForegroundColor Black
     $file=(getMD5("$($drive.DriveLetter):/boot.firm"));
     if ($file) {
         if ($file -eq $bootfirmMD5) {
-            write-host "boot.firm exists - Good"
+            write-host "boot.firm is valid" -ForegroundColor White -BackgroundColor DarkGreen;
         }else{
-            write-host "boot.firm is wrong.`nMD5 is        $file`nMD5 should be $bootfirmMD5`nRedownload Luma3ds. Make sure to use 7-zip to extract it to get the boot.firm"
-            PauseExit;
+            write-host "boot.firm is wrong.`nMD5 is        $file`nMD5 should be $bootfirmMD5`nRedownload Luma3ds. Make sure to use 7-zip to extract it to get the boot.firm" -ForegroundColor White -BackgroundColor DarkRed
+            Pause;
+            return $false;
         }
     }else {
-        write-host "boot.firm does not exist.`nRedownload Luma3ds. Make sure to use 7-zip to extract it to get the boot.firm"
-        PauseExit;
+        write-host "boot.firm does not exist.`nRedownload Luma3ds. Make sure to use 7-zip to extract it to get the boot.firm" -ForegroundColor White -BackgroundColor DarkRed
+        Pause;
+        return $false;
     }
     $file=(getMD5("$($drive.DriveLetter):/boot.3dsx"));
     if ($file) {
         if ($file -eq $boot3dsxMD5) {
-            write-host "boot.3dsx exists - Good"
+            write-host "boot.3dsx is valid" -ForegroundColor White -BackgroundColor DarkGreen;
         }else{
-            write-host "boot.3dsx is wrong.`nMD5 is        $file`nMD5 should be $boot3dsxMD5`nRedownload Homebrew Launcher. Put boot.3dsx on the SD at $($drive.DriveLetter):\boot.3dsx"
-            PauseExit;
+            write-host "boot.3dsx is wrong.`nMD5 is        $file`nMD5 should be $boot3dsxMD5`nRedownload Homebrew Launcher. Put boot.3dsx on the SD at $($drive.DriveLetter):\boot.3dsx" -ForegroundColor White -BackgroundColor DarkRed
+            Pause;
+            return $false;
         }
     }else {
-        write-host "boot.3dsx does not exist.`nRedownload Homebrew Launcher. Put boot.3dsx on the SD at $($drive.DriveLetter):\boot.3dsx"
-        PauseExit;
+        write-host "boot.3dsx does not exist.`nRedownload Homebrew Launcher. Put boot.3dsx on the SD at $($drive.DriveLetter):\boot.3dsx" -ForegroundColor White -BackgroundColor DarkRed
+        Pause;
+        return $false;
     }
 }
 
-Write-Host "`n`nEverything seems to be in order. if you are having issues, let us know on the Nintendo Homebrew discord`n"
-PauseExit
+
+$drive = GetDrive
+:nextMenu while ($($choice=ShowMenu) -ne "Q") {
+    
+    switch($choice) {
+        1 {
+            $checkFormat = !$checkFormat
+        }
+        2 {
+            $checkFiles = !$checkFiles
+        }
+        3 {
+            $checkSteelhax = !$checkSteelhax
+        }
+        4 {
+            $checkB9sTool = !$checkB9sTool
+        }
+        5 {
+            $checkFrogtool = !$checkFrogtool
+        }
+        6 {
+            $checkFredtool = !$checkFredtool
+        }
+        7 {
+            $checkLuma = !$checkLuma
+        }
+        R {
+            write-host "`n`n"
+            if ($checkFormat) {
+                if ($(CheckSDFormat) -ne $true) {
+                    continue nextMenu;
+                }
+            }
+            if ($checkFiles) {
+                checkSDFiles
+            }
+            if ($checkSteelhax) {
+                if ($(checkSteelhaxFiles) -ne $true) {
+                    continue nextMenu;
+                }
+            }
+            if ($checkB9sTool) {
+                checkB9sFiles
+            }
+            if ($checkFrogtool) {
+                if ($(checkFrogtoolFiles) -ne $true) {
+                    continue nextMenu;
+                }
+            }
+            if ($checkFredtool) {
+                if ($(checkFredtoolFiles) -ne $true) {
+                    continue nextMenu;
+                }
+            }
+            if ($checkLuma) {
+                if ($(checkLumaFiles) -ne $true) {
+                    continue nextMenu;
+                }
+            }
+
+            Write-Host "All checks have been run, please see above for any errors or warnings`n" -ForegroundColor White -BackgroundColor Black
+            Pause;
+        }
+        Q {
+            write-host "Good Byte!"
+            exit;
+        }
+    }
+}
+
