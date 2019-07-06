@@ -555,7 +555,8 @@ $drive = GetDrive
                 }
             }
             if ($checkB9sTool) {
-                checkB9sFiles
+                if ($(checkB9sFiles) -ne $true) {
+                }
             }
             if ($checkFrogtool) {
                 if ($(checkFrogtoolFiles) -ne $true) {
