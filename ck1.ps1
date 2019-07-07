@@ -1,8 +1,11 @@
 # Updated for luma 10.0.1 and steelminer for 11.7-11.10
 #b9stool v5.0.1 current as of 8 June 2019
 $bootndsMD5 = "1876FC7BD0DDDB4D1DDE86D3850A5D08"
+$bootndsURL = "https://api.github.com/repos/zoogie/b9sTool/releases/latest"
+
 #new-hbmenu v2.0.1
 $boot3dsxMD5 = "E90217FCE291717804B7522755AE20CA"
+$boot3dsxURL = "https://api.github.com/repos/fincs/new-hbmenu/releases/latest"
 #otherapp 11.10
 $payloadNewUS = "349EB973101E32F5975B4D13682F4ED0"
 $payloadNewEU = "41EDFA4A2EEDD5A7EEDF4B937CC7D267"
@@ -13,9 +16,11 @@ $payloadOldJP = "F6830F00218DAF599F1F607ED39CA9B4"
 
 #luma3ds v10.0.1
 $bootfirmMD5 = "3961A676E8017808B31D37136766C36D"
+$bootfirmURL = "https://api.github.com/repos/AuroraWright/Luma3DS/releases/latest"
 #steelhax
 $codebinMD5 = "75956D94937AD596921D165BB5044F1A"
 $ropbinMD5 = "1674E05F3179FF50138C0C862BF88EB1"
+$steelhaxURL = "https://github.com/VegaRoXas/vegaroxas.github.io/raw/master/files/steelhax-installer.rar"
 $USsteeldiver="000d7d00"
 $EUsteeldiver="000d7e00"
 $JPsteeldiver="000d7c00"
@@ -23,11 +28,12 @@ $JPsteeldiver="000d7c00"
 $frogcertMD5="39A1B894B9F85C9B1998D172EF4DCC3A"
 #Frogtool 2.2
 $frogtoolMD5="2511BC883FA69C2F79424784344737E8"
+$frogtoolURL = "https://api.github.com/repos/zoogie/Frogtool/releases/latest"
 #Flipnote Save
 $flipnoteMD5="61C6A702D6616F057D52197294DB11FD"
+$flipnoteURL="https://github.com/zoogie/Frogminer/raw/master/private/ds/app/4B47554A/001/T00031_1038C2A757B77_000.ppm"
 
-
-
+ #[regex]::Match((curl -uri https://api.github.com/repos/zoogie/b9sTool/releases/latest).content, '\"browser_download_url\":\"([^\"]*)"').Groups[1].Value
 
 $checkFormat = $true;
 $checkFiles = $true;
@@ -37,9 +43,37 @@ $checkFrogtool = $false;
 $checkFredtool = $false;
 $checkLuma = $false;
 $drive = $null;
+$download = $true;
 $choice = "";
 $ErrorActionPreference = 'silentlycontinue'
 #$script:drive;
+
+function DownloadFile() {
+    param([String]$url, [String]$file,[String]$Path,[bool]$unzip=$false,[bool]$githubAPI=$false)
+    if ($githubAPI) {
+        $content = (Invoke-WebRequest -uri "$($url)").content
+        $url = [regex]::Match($content, '\"browser_download_url\":\"([^\"]*)"').Groups[1].Value
+    }
+    write-Host "Downloading $($url)"
+    $downloadName="$($Path)/$($file)"
+    if ($unzip) {
+        $downloadName += ".zip"
+    }else{
+        $downloadName += ".temp"
+    }
+    (new-object System.Net.WebClient).DownloadFile( $url, "$($downloadName)");
+    if ($unzip) {
+        if ($url -match ".zip$") {
+            expand-archive -literalPath "$($downloadName)" -DestinationPath "$($Path)/$($file).temp.dir/"
+            $item = get-childitem -Recurse -Path "$($Path)/$($file).temp.dir/" -Filter "$($file)"
+            Move-Item -Destination "$($Path)/$($file)" -Path $item.fullname
+            Remove-Item -Recurse -Path "$($Path)/$($file).temp.dir"
+            Remove-Item -Recurse -Path $downloadName
+        }
+    }else{
+            Move-Item -Destination "$($Path)/$($file)" -Path "$($Path)/$($file).temp"
+    }
+}
 function isEnabled() {
     param([bool]$check = $false)
     if ( $check -eq $true ) {
@@ -134,7 +168,22 @@ function Exists() {
 
 ######## Check SD Card for misplaced files
 function checkSDFiles() {
+    write-host "Checking SD root for misnamed files" -BackgroundColor Gray -ForegroundColor Black
+    $misnamed = gci "$($drive.DriveLetter):\" -Recurse -Depth 1 |where-object { $_.Name -match "(boot|payload|movable)\s\(\d+\).*"} # find all items named "boot (#)*" then rename all the boot (#).firm/nds/etc to remove the " (#)"
+    foreach ($toRN in $misnamed) {
+        write-host "Found $($toRN.Name). Attempting to fix the name." -ForegroundColor Black -BackgroundColor Yellow;
+        rename-item -NewName $($toRN.Name -replace " \([0-9]+\)",'') -literalPath $toRN.Fullname
+    }
+    $misnamed = gci "$($drive.DriveLetter):\" |where-object { $_.Name -match "(boot|payload|movable)_\d+.*"} # find all items named "boot_#*" then rename all the boot_#.firm/nds/etc to remove the "_#"
+    foreach ($toRN in $misnamed) {
+        write-host "Found $($toRN.Name). Attempting to fix the name." -ForegroundColor Black -BackgroundColor Yellow;
+        rename-item -NewName $($toRN.Name -replace "_[0-9]+",'') -literalPath $toRN.Fullname
+    }
     write-host "Checking Nintendo 3ds folder for incorrect file placement`n" -BackgroundColor Gray -ForegroundColor Black
+    $id0folders=gci "$($drive.DriveLetter):\Nintendo 3ds\" |where-object { $_.Name -like "????????????????????????????????"}
+    if ($id0folders.length > 1) {
+        write-host "Found more than 1 ID0 folder" -ForegroundColor Black -BackgroundColor Yellow;
+    }
     $dirpath_list = $("$($drive.DriveLetter):\Nintendo 3ds\","$($drive.DriveLetter):\DCIM\")
     foreach ($dirpath in $dirpath_list) {
         write-host "Checking $($dirpath)";
@@ -288,18 +337,11 @@ function checkSteelhaxFiles() {
     }
     #Write-Host "`n`n"
     write-host "Checking for any steel diver updates and checking for save file size`n" -BackgroundColor Gray -ForegroundColor Black
-    $n3dsfolder = Get-ChildItem -Path "$($drive.DriveLetter):/\Nintendo 3ds\" | Where-Object { $_.PSIsContainer }
+    $n3dsfolder = Get-ChildItem -Path "$($drive.DriveLetter):/\Nintendo 3ds\" | Where-Object { $_.PSIsContainer  -and  $_.Name -like "????????????????????????????????"}
     foreach ($id0 in $n3dsfolder)
     {
-        if (-not ($id0.name.length -eq 32)) {
-            continue
-        }
-        $id1folders = Get-ChildItem -Path "$($id0.fullname)" |  Where-Object { $_.PSIsContainer } 
+        $id1folders = Get-ChildItem -Path "$($id0.fullname)" |  Where-Object { $_.PSIsContainer -and  $_.Name -like "????????????????????????????????"} 
         foreach ($id1 in $id1folders){
-            if (-not $id1.name.length -eq 32) { 
-                continue
-            }
-             #if (Test-Path -Path "$($drive.DriveLetter):/boot.nds" ) {
             if (Test-Path -Path "$($id1.fullname)\title\0004000e\$($gamedir)" ) {
                 write-host "You have the steel diver update installed. Be sure to delete it from settings->data management->3ds->downloadable content (or addons)" -ForegroundColor Black -BackgroundColor Yellow;;
                 write-host "update was found in: $($id1.fullname)`n";
@@ -334,6 +376,10 @@ function checkSteelhaxFiles() {
         }
     }else {
         write-host "boot.3dsx does not exist.`nRedownload Homebrew Launcher. Put boot.3dsx on the SD at $($drive.DriveLetter):\boot.3dsx" -ForegroundColor White -BackgroundColor DarkRed
+        if ($download) {
+            write-Host "Attempting to download boot.3dsx";
+            DownloadFile -url "$($boot3dsxURL)" -file "boot.3dsx" -Path "$($drive.DriveLetter):/" -githubAPI $true
+        }
         Pause;
         return $false;
     }
@@ -386,6 +432,10 @@ function checkB9sFiles() {
         }
     }else {
         write-host "boot.nds does not exist." -ForegroundColor White -BackgroundColor DarkRed
+        if ($download) {
+            write-Host "Attempting to download boot.nds";
+            DownloadFile -url "$($bootndsURL)" -file "boot.nds" -Path "$($drive.DriveLetter):/" -githubAPI $true -unzip $true
+        }
         Pause;
         return $false;
     }
@@ -435,24 +485,54 @@ function checkFrogtoolFiles() {
         }
     }else {
         write-host "frogtool.3dsx does not exist.`nRedownload frogtool and put it on the SD at $($drive.DriveLetter):\3ds\frogtool.3dsx" -ForegroundColor White -BackgroundColor DarkRed
+        if ($download) {
+            write-Host "Attempting to download frogtool.3dsx";
+            DownloadFile -url "$($frogtoolURL)" -file "frogtool.3dsx" -Path "$($drive.DriveLetter):/3ds/" -githubAPI $true -unzip $true
+        }
         Pause;
         return $false;
     }
     if ($(checkB9sFiles) -ne $true) {
+        Pause;
         return $false;
     }
     return $true;
 }
 ############# Check Fredtool Files
-function checkFrogtoolFiles() {
+function checkFredtoolFiles() {
     Write-Host "`nChecking Fredtool files`n" -BackgroundColor Gray -ForegroundColor Black
-    if ($(checkLumaFiles) -ne $true) {
+    if ($( checkLumaFiles ) -ne $true) {
+        Write-host "luma files false"
+        pause;
         return $false;
     }
-    if ($(checkB9sFiles) -ne $true) {
+    if ($( checkB9sFiles ) -ne $true) {
         return $false;
     }
-
+    
+    $file=(getMD5("$($drive.DriveLetter):/private/ds/app/4B47554A/001/T00031_1038C2A757B77_000.ppm"));
+    if ($file) {
+        if ($file -eq $flipnoteMD5) {
+            write-host "Flipnote Save is valid" -ForegroundColor White -BackgroundColor DarkGreen;
+        }else{
+            write-host "Flipnote Save is wrong.`nMD5 is        $file`nMD5 should be $flipnoteMD5`nRedownload Frogminer save and copy the private folder to sd root." -ForegroundColor White -BackgroundColor DarkRed
+            Pause;
+            return $false;
+        }
+    }else {
+        write-host "Flipnote Save does not exist.`nRedownload Frogminer save and copy the private folder to sd root." -ForegroundColor White -BackgroundColor DarkRed
+        if ($download) {
+            write-Host "Attempting to download Flipnote save";
+            #new-Item -Name "private" -ItemType "directory" -Path "$($drive.DriveLetter):/";
+            #new-Item -Name "ds" -ItemType "directory" -Path "$($drive.DriveLetter):/private/";
+            #new-Item -Name "app" -ItemType "directory" -Path "$($drive.DriveLetter):/private/ds/";
+            #new-Item -Name "4B47554A" -ItemType "directory" -Path "$($drive.DriveLetter):/private/ds/app/";
+            new-Item -Name "001" -Force -ItemType "directory" -Path "$($drive.DriveLetter):/private/ds/app/4B47554A/";
+            DownloadFile -url "$($flipnoteURL)" -file "T00031_1038C2A757B77_000.ppm" -Path "$($drive.DriveLetter):/private/ds/app/4B47554A/001/" -githubAPI $false -unzip $false
+        }
+        Pause;
+        return $false;
+    }
     $n3dsfolder = Get-ChildItem -Path "$($drive.DriveLetter):/\Nintendo 3ds\" | Where-Object { $_.PSIsContainer }
     foreach ($id0 in $n3dsfolder)
     {
@@ -476,7 +556,6 @@ function checkFrogtoolFiles() {
         Pause;
         return $false;
     }
-
     return $true;
 }
 ############# Check Luma Files
@@ -493,7 +572,11 @@ function checkLumaFiles() {
             return $false;
         }
     }else {
-        write-host "boot.firm does not exist.`nRedownload Luma3ds. Make sure to use 7-zip to extract it to get the boot.firm" -ForegroundColor White -BackgroundColor DarkRed
+        write-host "boot.firm does not exist.`nRedownload Luma3ds. Make sure to extract it to get the boot.firm" -ForegroundColor White -BackgroundColor DarkRed
+        if ($download) {
+            write-Host "Attempting to download boot.firm";
+            DownloadFile -url "$($bootfirmURL)" -file "boot.firm" -Path "$($drive.DriveLetter):/" -githubAPI $true -unzip $true
+        }
         Pause;
         return $false;
     }
@@ -508,9 +591,14 @@ function checkLumaFiles() {
         }
     }else {
         write-host "boot.3dsx does not exist.`nRedownload Homebrew Launcher. Put boot.3dsx on the SD at $($drive.DriveLetter):\boot.3dsx" -ForegroundColor White -BackgroundColor DarkRed
+        if ($download) {
+            write-Host "Attempting to download boot.3dsx";
+            DownloadFile -url "$($boot3dsxURL)" -file "boot.3dsx" -Path "$($drive.DriveLetter):/" -githubAPI $true
+        }
         Pause;
         return $false;
     }
+    return $true;
 }
 
 
