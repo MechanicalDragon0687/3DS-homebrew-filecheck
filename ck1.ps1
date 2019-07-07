@@ -43,7 +43,7 @@ $checkFrogtool = $false;
 $checkFredtool = $false;
 $checkLuma = $false;
 $drive = $null;
-$download = $true;
+$download = $false;
 $choice = "";
 $ErrorActionPreference = 'silentlycontinue'
 #$script:drive;
